@@ -65,7 +65,7 @@ df = load_data()
 # MODERNBERT
 # ============================================================
 
-MODEL_PATH = "models/P9_ModernBERT_best"
+MODEL_PATH = "Julien-Ama/ModernBERT-Flipkart-P9"
 
 LABELS = [
     "Baby Care",
@@ -78,11 +78,15 @@ LABELS = [
 ]
 
 
+MODEL_PATH = "Julien-Ama/ModernBERT-Flipkart-P9"
+TOKENIZER_PATH = "answerdotai/ModernBERT-base"
+
+
 @st.cache_resource
 def load_modernbert():
 
     tokenizer = AutoTokenizer.from_pretrained(
-        MODEL_PATH
+        TOKENIZER_PATH
     )
 
     model = AutoModelForSequenceClassification.from_pretrained(
