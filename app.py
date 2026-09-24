@@ -25,6 +25,18 @@ st.set_page_config(
 
 st.title("Dashboard P9 — Classification de produits")
 
+st.markdown(
+    """
+    Ce dashboard présente une preuve de concept de classification
+    automatique de produits à partir de leur description textuelle.
+
+    **Modèle étudié :** ModernBERT  
+    **Modèle de référence :** BERT  
+    **Nombre de catégories :** 7
+    """
+)
+
+st.divider()
 
 # ============================================================
 # CHARGEMENT DES DONNÉES
@@ -137,6 +149,15 @@ def predict_category(text):
 # NAVIGATION
 # ============================================================
 
+st.sidebar.title("Dashboard P9")
+
+st.sidebar.write(
+    """
+    Sélectionnez une section pour explorer
+    les données ou tester le modèle.
+    """
+)
+
 page = st.sidebar.radio(
     "Navigation",
     [
@@ -210,7 +231,8 @@ if page == "📊 Exploration des données":
 
     fig_categories.update_layout(
         xaxis_title="Catégorie",
-        yaxis_title="Nombre de produits"
+        yaxis_title="Nombre de produits",
+        font=dict(size=14)
     )
 
     st.plotly_chart(
@@ -268,7 +290,8 @@ if page == "📊 Exploration des données":
 
     fig_length.update_layout(
         xaxis_title="Nombre de mots",
-        yaxis_title="Nombre de produits"
+        yaxis_title="Nombre de produits",
+        font=dict(size=14)
     )
 
     st.plotly_chart(
@@ -447,6 +470,15 @@ elif page == "🤖 Prédiction":
             f"{confidence * 100:.1f} %"
         )
 
+        st.caption(
+            """
+            La confiance correspond à la probabilité attribuée
+            par le modèle à la catégorie sélectionnée.
+            Une confiance élevée ne garantit pas que la prédiction
+            soit correcte.
+            """
+        )
+
         # Tableau des probabilités
         prob_df = pd.DataFrame({
             "Catégorie": LABELS,
@@ -481,7 +513,8 @@ elif page == "🤖 Prédiction":
             yaxis_title="Catégorie",
             yaxis={
                 "categoryorder": "total ascending"
-            }
+            },
+            font=dict(size=14)
         )
 
         st.plotly_chart(
@@ -516,6 +549,15 @@ elif page == "🤖 Prédiction":
                 "with leather strap and water resistant case."
             )
         )
+
+        st.caption(
+            """
+            Conseil : utilisez une description suffisamment précise
+            contenant le type de produit, ses caractéristiques
+            et éventuellement son usage.
+            """
+        )
+
 
         if st.button(
             "Classifier cette description",
