@@ -1,0 +1,8 @@
+streamlit
+pandas
+plotly
+matplotlib
+wordcloud
+torch
+transformers
+safetensors

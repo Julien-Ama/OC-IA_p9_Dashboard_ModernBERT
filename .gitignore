@@ -1,0 +1,22 @@
+# Modèles ML lourds
+models/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Environnements
+venv/
+.venv/
+env/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Fichiers système
+.DS_Store
+Thumbs.db
