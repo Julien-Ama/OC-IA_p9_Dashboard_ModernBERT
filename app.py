@@ -70,8 +70,31 @@ def load_data():
 
     return df
 
+# ============================================================
+# CHARGEMENT DES RÉSULTATS D'EXPÉRIENCES
+# ============================================================
+
+@st.cache_data
+def load_experiment_data():
+
+    tuning_df = pd.read_csv(
+        "data/P9_tuning_ModernBERT_extended.csv"
+    )
+
+    glue_df = pd.read_csv(
+        "data/P9_GLUE_ModernBERT_all_tasks.csv"
+    )
+
+    return tuning_df, glue_df
 
 df = load_data()
+
+tuning_df, glue_df = load_experiment_data()
+
+st.sidebar.success(
+    f"Tuning : {len(tuning_df)} résultats | "
+    f"GLUE : {len(glue_df)} résultats"
+)
 
 # ============================================================
 # MODERNBERT
@@ -163,7 +186,7 @@ page = st.sidebar.radio(
     [
         "📊 Exploration des données",
         "🤖 Prédiction",
-        "📈 BERT vs ModernBERT"
+        "📈 Expérimentations ModernBERT"
     ]
 )
 
@@ -690,19 +713,574 @@ elif page == "🤖 Prédiction":
 # PAGE 3 — COMPARAISON BERT / MODERNBERT
 # ============================================================
 
-elif page == "📈 BERT vs ModernBERT":
+elif page == "📈 Expérimentations ModernBERT":
 
-    st.header(
-        "Comparaison BERT vs ModernBERT"
-    )
+    st.header("Expérimentations ModernBERT")
 
     st.write(
         """
-        Cette section compare les performances de BERT
-        et ModernBERT sur le dataset métier Flipkart,
-        puis sur la tâche SST-2 du benchmark GLUE.
+        Cette section permet d'explorer les résultats des
+        différentes expérimentations réalisées avec ModernBERT :
+        optimisation des hyperparamètres et benchmark GLUE.
         """
     )
+
+    tab_tuning, tab_glue = st.tabs(
+        [
+            "⚙️ Optimisation",
+            "🧪 Benchmark GLUE"
+        ]
+    )
+
+    # ========================================================
+    # ONGLET 1 — OPTIMISATION
+    # ========================================================
+
+    with tab_tuning:
+
+        st.subheader(
+            "Optimisation des hyperparamètres"
+        )
+
+        st.write(
+            """
+            Le learning rate optimal identifié lors du premier
+            tuning est fixé à **5e-5**.
+
+            Les expériences suivantes étudient l'influence du
+            **batch size**, du **weight decay** et du nombre
+            d'**epochs** sur les performances de ModernBERT.
+            """
+        )
+
+        # ----------------------------------------------------
+        # Sélection Batch size
+        # ----------------------------------------------------
+
+        batch_values = sorted(
+            tuning_df["batch_size"]
+            .unique()
+            .tolist()
+        )
+
+        selected_batch = st.selectbox(
+            "Batch size",
+            batch_values
+        )
+
+        # ----------------------------------------------------
+        # Sélection Weight decay
+        # ----------------------------------------------------
+
+        available_wd = (
+            tuning_df[
+                tuning_df["batch_size"] == selected_batch
+                ]["weight_decay"]
+            .unique()
+            .tolist()
+        )
+
+        available_wd = sorted(available_wd)
+
+        selected_wd = st.selectbox(
+            "Weight decay",
+            available_wd
+        )
+
+        # ----------------------------------------------------
+        # Filtrage de la configuration
+        # ----------------------------------------------------
+
+        tuning_filtered = tuning_df[
+            (
+                    tuning_df["batch_size"]
+                    == selected_batch
+            )
+            &
+            (
+                    tuning_df["weight_decay"]
+                    == selected_wd
+            )
+            ].sort_values("epoch")
+
+        # ----------------------------------------------------
+        # Sélection Epoch
+        # ----------------------------------------------------
+
+        epoch_values = (
+            tuning_filtered["epoch"]
+            .astype(int)
+            .tolist()
+        )
+
+        selected_epoch = st.select_slider(
+            "Epoch",
+            options=epoch_values
+        )
+
+        result_epoch = tuning_filtered[
+            tuning_filtered["epoch"].astype(int)
+            == selected_epoch
+            ].iloc[0]
+
+        st.markdown("### Résultats")
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        col1.metric(
+            "Accuracy",
+            f"{result_epoch['val_accuracy'] * 100:.2f} %"
+        )
+
+        col2.metric(
+            "Macro-F1",
+            f"{result_epoch['val_f1_macro'] * 100:.2f} %"
+        )
+
+        col3.metric(
+            "Precision",
+            f"{result_epoch['val_precision_macro'] * 100:.2f} %"
+        )
+
+        col4.metric(
+            "Recall",
+            f"{result_epoch['val_recall_macro'] * 100:.2f} %"
+        )
+
+        st.metric(
+            "Validation Loss",
+            f"{result_epoch['val_loss']:.4f}"
+        )
+
+        # st.markdown("### Résultats")
+        # 
+        # col1, col2, col3, col4 = st.columns(4)
+        #
+        # col1.metric(
+        #     "Accuracy",
+        #     f"{result_epoch['val_accuracy'] * 100:.2f} %"
+        # )
+        #
+        # col2.metric(
+        #     "Macro-F1",
+        #     f"{result_epoch['val_f1_macro'] * 100:.2f} %"
+        # )
+        #
+        # col3.metric(
+        #     "Precision",
+        #     f"{result_epoch['val_precision_macro'] * 100:.2f} %"
+        # )
+        #
+        # col4.metric(
+        #     "Recall",
+        #     f"{result_epoch['val_recall_macro'] * 100:.2f} %"
+        # )
+        #
+        # st.metric(
+        #     "Validation Loss",
+        #     f"{result_epoch['val_loss']:.4f}"
+        # )
+
+        # ========================================================
+        # ONGLET 2 — BENCHMARK GLUE
+        # ========================================================
+
+        with tab_glue:
+
+            st.subheader("Benchmark GLUE — ModernBERT")
+
+            st.write(
+                """
+                Cette section présente les performances de ModernBERT
+                sur plusieurs tâches du benchmark GLUE.
+
+                Sélectionnez une tâche et un epoch pour observer
+                l'évolution des performances du modèle.
+                """
+            )
+
+            # ----------------------------------------------------
+            # Description des tâches
+            # ----------------------------------------------------
+
+            glue_descriptions = {
+                "SST-2": (
+                    "Analyse de sentiment : déterminer si une phrase "
+                    "exprime un sentiment positif ou négatif."
+                ),
+                "MRPC": (
+                    "Détection de paraphrases : déterminer si deux "
+                    "phrases ont le même sens."
+                ),
+                "RTE": (
+                    "Reconnaissance d'implication textuelle : déterminer "
+                    "si une phrase est impliquée par une autre."
+                ),
+                "CoLA": (
+                    "Acceptabilité linguistique : déterminer si une "
+                    "phrase anglaise est linguistiquement acceptable."
+                )
+            }
+
+            # ----------------------------------------------------
+            # Sélection de la tâche
+            # ----------------------------------------------------
+
+            tasks = [
+                "SST-2",
+                "MRPC",
+                "RTE",
+                "CoLA"
+            ]
+
+            selected_task = st.selectbox(
+                "Tâche GLUE",
+                tasks
+            )
+
+            st.info(
+                glue_descriptions[selected_task]
+            )
+
+            # ----------------------------------------------------
+            # Filtrage des résultats
+            # ----------------------------------------------------
+
+            glue_filtered = (
+                glue_df[
+                    glue_df["task"] == selected_task
+                    ]
+                .sort_values("epoch")
+                .copy()
+            )
+
+            # ----------------------------------------------------
+            # Sélection de l'epoch
+            # ----------------------------------------------------
+
+            glue_epochs = (
+                glue_filtered["epoch"]
+                .astype(int)
+                .tolist()
+            )
+
+            selected_glue_epoch = st.select_slider(
+                "Epoch",
+                options=glue_epochs,
+                key="glue_epoch"
+            )
+
+            glue_result = glue_filtered[
+                glue_filtered["epoch"].astype(int)
+                == selected_glue_epoch
+                ].iloc[0]
+
+            # ----------------------------------------------------
+            # Résultats de l'epoch sélectionné
+            # ----------------------------------------------------
+
+            st.markdown("### Résultats")
+
+            if selected_task == "CoLA":
+
+                col1, col2, col3, col4 = st.columns(4)
+
+                col1.metric(
+                    "Accuracy",
+                    f"{glue_result['accuracy'] * 100:.2f} %"
+                )
+
+                col2.metric(
+                    "Macro-F1",
+                    f"{glue_result['f1'] * 100:.2f} %"
+                )
+
+                col3.metric(
+                    "MCC",
+                    f"{glue_result['mcc']:.3f}"
+                )
+
+                col4.metric(
+                    "Validation Loss",
+                    f"{glue_result['loss']:.4f}"
+                )
+
+            else:
+
+                col1, col2, col3 = st.columns(3)
+
+                col1.metric(
+                    "Accuracy",
+                    f"{glue_result['accuracy'] * 100:.2f} %"
+                )
+
+                col2.metric(
+                    "F1",
+                    f"{glue_result['f1'] * 100:.2f} %"
+                )
+
+                col3.metric(
+                    "Validation Loss",
+                    f"{glue_result['loss']:.4f}"
+                )
+
+            # ----------------------------------------------------
+            # Évolution des performances
+            # ----------------------------------------------------
+
+            st.markdown("### Évolution selon les epochs")
+
+            # Accuracy et F1 pour toutes les tâches
+            metrics_to_plot = [
+                "accuracy",
+                "f1"
+            ]
+
+            # MCC uniquement pour CoLA
+            if selected_task == "CoLA":
+                metrics_to_plot.append("mcc")
+
+            fig_glue = px.line(
+                glue_filtered,
+                x="epoch",
+                y=metrics_to_plot,
+                markers=True,
+                title=(
+                    f"Évolution des performances — "
+                    f"{selected_task}"
+                )
+            )
+
+            fig_glue.update_layout(
+                xaxis_title="Epoch",
+                yaxis_title="Score",
+                yaxis_range=[0, 1]
+            )
+
+            st.plotly_chart(
+                fig_glue,
+                use_container_width=True
+            )
+
+            # ----------------------------------------------------
+            # Évolution de la Validation Loss
+            # ----------------------------------------------------
+
+            fig_loss = px.line(
+                glue_filtered,
+                x="epoch",
+                y="loss",
+                markers=True,
+                title=(
+                    f"Évolution de la Validation Loss — "
+                    f"{selected_task}"
+                )
+            )
+
+            fig_loss.update_layout(
+                xaxis_title="Epoch",
+                yaxis_title="Validation Loss"
+            )
+
+            st.plotly_chart(
+                fig_loss,
+                use_container_width=True
+            )
+
+            # ----------------------------------------------------
+            # Explication de la métrique principale
+            # ----------------------------------------------------
+
+            if selected_task == "CoLA":
+
+                st.caption(
+                    """
+                    Pour CoLA, la métrique de référence est le
+                    Matthews Correlation Coefficient (MCC).
+                    Contrairement à l'Accuracy, le MCC prend en
+                    compte la qualité des prédictions sur les
+                    différentes classes.
+                    """
+                )
+
+            elif selected_task == "MRPC":
+
+                st.caption(
+                    """
+                    MRPC évalue la détection de paraphrases.
+                    Accuracy et F1 sont utilisées pour analyser
+                    les performances du modèle.
+                    """
+                )
+
+            elif selected_task == "RTE":
+
+                st.caption(
+                    """
+                    Pour RTE, l'Accuracy constitue la métrique
+                    principale utilisée pour évaluer la tâche.
+                    """
+                )
+
+            else:
+
+                st.caption(
+                    """
+                    SST-2 est une tâche de classification binaire
+                    de sentiment. L'Accuracy constitue la métrique
+                    principale.
+                    """
+                )
+
+            # ====================================================
+            # SYNTHÈSE DES MEILLEURS RÉSULTATS GLUE
+            # ====================================================
+
+            st.divider()
+
+            st.subheader("Synthèse des meilleurs résultats GLUE")
+
+            st.write(
+                """
+                Le tableau ci-dessous présente le meilleur epoch
+                obtenu par ModernBERT pour chaque tâche GLUE,
+                selon la métrique principale associée à la tâche.
+                """
+            )
+
+            # ----------------------------------------------------
+            # Sélection du meilleur epoch pour chaque tâche
+            # ----------------------------------------------------
+
+            best_results = []
+
+            for task in ["SST-2", "MRPC", "RTE", "CoLA"]:
+
+                task_df = glue_df[
+                    glue_df["task"] == task
+                    ].copy()
+
+                if task == "CoLA":
+
+                    best_row = task_df.loc[
+                        task_df["mcc"].idxmax()
+                    ]
+
+                    main_metric = "MCC"
+                    main_score = best_row["mcc"]
+
+                elif task == "MRPC":
+
+                    best_row = task_df.loc[
+                        task_df["f1"].idxmax()
+                    ]
+
+                    main_metric = "F1"
+                    main_score = best_row["f1"]
+
+                else:
+
+                    best_row = task_df.loc[
+                        task_df["accuracy"].idxmax()
+                    ]
+
+                    main_metric = "Accuracy"
+                    main_score = best_row["accuracy"]
+
+                best_results.append({
+                    "Tâche": task,
+                    "Meilleur epoch": int(best_row["epoch"]),
+                    "Métrique principale": main_metric,
+                    "Score principal": main_score,
+                    "Accuracy": best_row["accuracy"],
+                    "F1": best_row["f1"],
+                    "MCC": best_row["mcc"]
+                })
+
+            best_glue_df = pd.DataFrame(best_results)
+
+            # ----------------------------------------------------
+            # Tableau récapitulatif
+            # ----------------------------------------------------
+
+            display_best_glue = best_glue_df.copy()
+
+            display_best_glue["Score principal"] = (
+                display_best_glue["Score principal"]
+                .map(lambda x: f"{x:.3f}")
+            )
+
+            display_best_glue["Accuracy"] = (
+                display_best_glue["Accuracy"]
+                .map(lambda x: f"{x * 100:.2f} %")
+            )
+
+            display_best_glue["F1"] = (
+                display_best_glue["F1"]
+                .map(lambda x: f"{x * 100:.2f} %")
+            )
+
+            display_best_glue["MCC"] = (
+                display_best_glue["MCC"]
+                .apply(
+                    lambda x:
+                    "-" if pd.isna(x)
+                    else f"{x:.3f}"
+                )
+            )
+
+            st.dataframe(
+                display_best_glue,
+                use_container_width=True,
+                hide_index=True
+            )
+
+            # ----------------------------------------------------
+            # Graphique des scores principaux
+            # ----------------------------------------------------
+
+            fig_best_glue = px.bar(
+                best_glue_df,
+                x="Tâche",
+                y="Score principal",
+                text="Score principal",
+                title=(
+                    "Meilleur score obtenu par tâche GLUE"
+                ),
+                hover_data=[
+                    "Meilleur epoch",
+                    "Métrique principale"
+                ]
+            )
+
+            fig_best_glue.update_traces(
+                texttemplate="%{text:.3f}",
+                textposition="outside"
+            )
+
+            fig_best_glue.update_layout(
+                yaxis_title="Score",
+                xaxis_title="Tâche",
+                yaxis_range=[0, 1]
+            )
+
+            st.plotly_chart(
+                fig_best_glue,
+                use_container_width=True
+            )
+
+            st.info(
+                """
+                Attention : les scores des différentes tâches ne sont
+                pas directement comparables entre eux.
+
+                SST-2 et RTE utilisent principalement l'Accuracy,
+                MRPC utilise ici le F1, tandis que CoLA utilise le MCC.
+                Ce graphique synthétise donc les meilleurs résultats
+                obtenus, mais ne constitue pas un classement direct
+                des tâches.
+                """
+            )
 
 
     # ========================================================
